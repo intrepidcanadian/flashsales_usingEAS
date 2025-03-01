@@ -25,13 +25,20 @@ export function ProductCard({ product, onAddToCart }: ProductCardProps) {
   const [purchaseStatus, setPurchaseStatus] = useState<{
     canPurchase: boolean;
     reason?: string;
-  }>({ canPurchase: false });
-  const [isChecking, setIsChecking] = useState<boolean>(false);
+  }>({ canPurchase: false, reason: 'Checking verification...' });
+  const [isChecking, setIsChecking] = useState<boolean>(true);
 
   useEffect(() => {
     const checkPurchaseEligibility = async () => {
       if (!address) {
         setPurchaseStatus({ canPurchase: false, reason: 'Please connect your wallet' });
+        setIsChecking(false);
+        return;
+      }
+
+      if (product.verificationRequired === VerificationRequirement.NONE) {
+        setPurchaseStatus({ canPurchase: true });
+        setIsChecking(false);
         return;
       }
 
@@ -42,6 +49,7 @@ export function ProductCard({ product, onAddToCart }: ProductCardProps) {
           product.region,
           product.verificationRequired
         );
+        console.log('Purchase status for product:', product.name, status);
         setPurchaseStatus(status);
       } catch (error) {
         console.error('Error checking purchase eligibility:', error);
@@ -55,7 +63,7 @@ export function ProductCard({ product, onAddToCart }: ProductCardProps) {
     };
 
     checkPurchaseEligibility();
-  }, [address, product.region, product.verificationRequired]);
+  }, [address, product.region, product.verificationRequired, product.name]);
 
   const handleAddToCart = () => {
     if (!address) {
@@ -70,11 +78,47 @@ export function ProductCard({ product, onAddToCart }: ProductCardProps) {
 
     if (onAddToCart) {
       onAddToCart(product);
+      toast.success('Added to cart');
     }
   };
 
   const getVerificationBadge = () => {
+    if (isChecking) {
+      return (
+        <span className="px-3 py-1.5 rounded-full text-xs font-medium flex items-center gap-2 bg-gray-100 text-gray-600">
+          <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+          </svg>
+          Checking Verification
+        </span>
+      );
+    }
+
     const baseClasses = "px-3 py-1.5 rounded-full text-xs font-medium flex items-center gap-2";
+    
+    if (product.verificationRequired === VerificationRequirement.NONE) {
+      return (
+        <span className={`${baseClasses} bg-green-100 text-green-800`}>
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+          </svg>
+          No Verification Required
+        </span>
+      );
+    }
+
+    if (!address) {
+      return (
+        <span className={`${baseClasses} bg-gray-100 text-gray-600`}>
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m0 0v2m0-2h2m-2 0H8m10-6a6 6 0 11-12 0 6 6 0 0112 0z" />
+          </svg>
+          Connect Wallet to Check
+        </span>
+      );
+    }
+
     const icon = purchaseStatus.canPurchase ? (
       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -86,32 +130,25 @@ export function ProductCard({ product, onAddToCart }: ProductCardProps) {
     );
 
     switch (product.verificationRequired) {
-      case "NONE":
+      case VerificationRequirement.REGION:
         return (
-          <span className={`${baseClasses} bg-green-100 text-green-800`}>
+          <span className={`${baseClasses} ${purchaseStatus.canPurchase ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
             {icon}
-            No Verification Required
+            {purchaseStatus.canPurchase ? `${product.region} Verified` : `${product.region} Region Required`}
           </span>
         );
-      case "REGION":
-        return (
-          <span className={`${baseClasses} ${purchaseStatus.canPurchase ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'}`}>
-            {icon}
-            {purchaseStatus.canPurchase ? 'Region Verified' : `Region Restricted: ${product.region}`}
-          </span>
-        );
-      case "TRADING":
+      case VerificationRequirement.TRADING:
         return (
           <span className={`${baseClasses} ${purchaseStatus.canPurchase ? 'bg-green-100 text-green-800' : 'bg-purple-100 text-purple-800'}`}>
             {icon}
             {purchaseStatus.canPurchase ? 'Trading Verified' : 'Trading Verification Required'}
           </span>
         );
-      case "BOTH":
+      case VerificationRequirement.BOTH:
         return (
-          <span className={`${baseClasses} ${purchaseStatus.canPurchase ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+          <span className={`${baseClasses} ${purchaseStatus.canPurchase ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
             {icon}
-            {purchaseStatus.canPurchase ? 'Region & Trading Verified' : 'Region & Trading Verification Required'}
+            {purchaseStatus.canPurchase ? `${product.region} & Trading Verified` : `${product.region} Region & Trading Required`}
           </span>
         );
       default:
@@ -120,7 +157,7 @@ export function ProductCard({ product, onAddToCart }: ProductCardProps) {
   };
 
   return (
-    <div className={`bg-white rounded-lg shadow-sm overflow-hidden ${!purchaseStatus.canPurchase ? 'opacity-75' : ''}`}>
+    <div className={`bg-white rounded-lg shadow-sm overflow-hidden ${!purchaseStatus.canPurchase && !isChecking ? 'opacity-75' : ''}`}>
       {/* Product Image */}
       <div className="aspect-w-16 aspect-h-9 relative">
         <img
@@ -174,14 +211,21 @@ export function ProductCard({ product, onAddToCart }: ProductCardProps) {
           ) : (
             <button
               onClick={handleAddToCart}
-              disabled={!purchaseStatus.canPurchase}
+              disabled={!purchaseStatus.canPurchase || !address}
               className={`w-full py-2 px-4 rounded-md flex items-center justify-center gap-2 ${
-                purchaseStatus.canPurchase
+                purchaseStatus.canPurchase && address
                   ? 'bg-blue-600 text-white hover:bg-blue-700'
                   : 'bg-gray-100 text-gray-400 cursor-not-allowed'
               } transition-colors`}
             >
-              {purchaseStatus.canPurchase ? (
+              {!address ? (
+                <>
+                  <span>Connect Wallet</span>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m0 0v2m0-2h2m-2 0H8m10-6a6 6 0 11-12 0 6 6 0 0112 0z" />
+                  </svg>
+                </>
+              ) : purchaseStatus.canPurchase ? (
                 <>
                   <span>Add to Cart</span>
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

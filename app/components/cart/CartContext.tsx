@@ -1,9 +1,11 @@
 'use client';
 
 import { createContext, useContext, useReducer, ReactNode, useEffect, useState, useCallback } from 'react';
-import { createCoinbaseCheckout } from '@/app/utils/coinbase';
+import { createCoinbaseCheckout, createCoinbaseProduct } from '../../utils/coinbase';
 import { useAccount } from 'wagmi';
 import toast from 'react-hot-toast';
+import { supabase } from '../../../lib/supabase';
+import type { Database, Json } from '../../../types/database';
 
 export interface CartItem {
   id: string;
@@ -12,7 +14,10 @@ export interface CartItem {
   quantity: number;
   image?: string;
   video?: string;
-  type: 'physical';
+  type: 'physical' | 'nft';
+  contractAddress?: string;
+  tokenId?: string;
+  coinbaseProductId?: string;
 }
 
 interface CartState {
@@ -176,15 +181,45 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
     try {
       dispatch({ type: 'SET_PROCESSING', payload: true });
+
+      // Create products in Coinbase Commerce if they don't exist
+      for (const item of state.items) {
+        if (!item.coinbaseProductId) {
+          const product = await createCoinbaseProduct({
+            name: item.name,
+            description: `${item.name} (${item.type === 'nft' ? 'NFT' : 'Physical'})`,
+            price: item.price,
+            type: item.type,
+            image_url: item.image
+          });
+          item.coinbaseProductId = product.data.id;
+        }
+      }
+
       const checkout = await createCoinbaseCheckout(state.items, address, testMode);
       
-      // Store order details in localStorage for post-purchase verification
-      localStorage.setItem('lastOrder', JSON.stringify({
-        orderId: checkout.data.metadata.order_id,
-        items: state.items,
-        timestamp: Date.now(),
-        testMode
-      }));
+      // Create order in Supabase
+      const { error: orderError } = await supabase
+        .from('orders')
+        .insert({
+          id: checkout.data.metadata.order_id,
+          user_address: address,
+          items: state.items as unknown as Json,
+          total: state.items.reduce((sum, item) => 
+            sum + (testMode ? 
+              (item.type === 'nft' ? 0.0000001 : 0.01) : 
+              item.price) * item.quantity, 
+            0
+          ),
+          status: 'pending',
+          charge_id: checkout.data.id,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        } as Database['public']['Tables']['orders']['Insert']);
+
+      if (orderError) {
+        throw orderError;
+      }
       
       // Clear the cart before redirecting
       dispatch({ type: 'CLEAR_CART' });
@@ -197,7 +232,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     } finally {
       dispatch({ type: 'SET_PROCESSING', payload: false });
     }
-  }, [mounted, state.items, address, dispatch]);
+  }, [mounted, state.items, address]);
 
   // Prevent rendering until after hydration
   if (!mounted) {

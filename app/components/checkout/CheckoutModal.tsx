@@ -2,9 +2,8 @@
 
 import { useAccount } from 'wagmi';
 import { useState } from 'react';
-import { useCart } from '../cart/CartContext';
-import type { CartItem } from '../cart/CartContext';
 import toast from 'react-hot-toast';
+import { useCart } from '../cart/CartContext';
 import { createCoinbaseCheckout } from '../../utils/coinbase';
 
 interface Props {
