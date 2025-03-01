@@ -253,10 +253,8 @@ export async function getAttestationData(uid: string) {
       return null;
     }
 
-    // Decode the attestation data
-    const schemaEncoder = createMerchantSchema();
-    const decodedData = schemaEncoder.decodeData(attestation.data);
-
+    // Return the raw attestation data without decoding
+    // The decoding will be handled by the specific verification functions
     return {
       uid: attestation.uid,
       schema: attestation.schema,
@@ -267,13 +265,7 @@ export async function getAttestationData(uid: string) {
       recipient: attestation.recipient,
       attester: attestation.attester,
       revocable: attestation.revocable,
-      data: {
-        merchantAddress: decodedData[0].value.toString(),
-        merchantLevel: Number(decodedData[1].value),
-        merchantCategory: decodedData[2].value.toString(),
-        reviewScore: Number(decodedData[3].value),
-        isActive: Boolean(decodedData[4].value)
-      }
+      data: attestation.data
     };
   } catch (error) {
     console.error("Error fetching Metadata:", error);

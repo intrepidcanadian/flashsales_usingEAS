@@ -5,7 +5,7 @@ import { Product } from '@/app/data/products';
 
 interface Props {
   onSearch: (searchTerm: string) => void;
-  onFilterType: (type: 'all' | 'nft' | 'physical') => void;
+  onFilterType: (type: 'all' | 'physical') => void;
   onFilterPrice: (range: [number, number]) => void;
   onFilterTags: (tags: string[]) => void;
   availableTags: string[];
@@ -19,7 +19,7 @@ export function SearchAndFilter({
   availableTags,
 }: Props) {
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedType, setSelectedType] = useState<'all' | 'nft' | 'physical'>('all');
+  const [selectedType, setSelectedType] = useState<'all' | 'physical'>('all');
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 1000]);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
 
@@ -31,7 +31,7 @@ export function SearchAndFilter({
     return () => clearTimeout(debounceTimer);
   }, [searchTerm, onSearch]);
 
-  const handleTypeChange = (type: 'all' | 'nft' | 'physical') => {
+  const handleTypeChange = (type: 'all' | 'physical') => {
     setSelectedType(type);
     onFilterType(type);
   };
@@ -74,10 +74,10 @@ export function SearchAndFilter({
         <div>
           <label className="block text-sm font-medium text-gray-700">Product Type</label>
           <div className="mt-2 flex space-x-2">
-            {['all', 'nft', 'physical'].map((type) => (
+            {['all', 'physical'].map((type) => (
               <button
                 key={type}
-                onClick={() => handleTypeChange(type as 'all' | 'nft' | 'physical')}
+                onClick={() => handleTypeChange(type as 'all' | 'physical')}
                 className={`px-3 py-1 rounded-full text-sm font-medium ${
                   selectedType === type
                     ? 'bg-blue-600 text-white'
@@ -95,20 +95,23 @@ export function SearchAndFilter({
           <label className="block text-sm font-medium text-gray-700">Price Range</label>
           <div className="mt-2 flex items-center space-x-4">
             <input
-              type="number"
+              type="range"
               min="0"
+              max="1000"
               value={priceRange[0]}
               onChange={(e) => handlePriceChange([Number(e.target.value), priceRange[1]])}
-              className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-24 sm:text-sm border-gray-300 rounded-md"
+              className="w-1/2"
             />
-            <span>to</span>
+            <span className="text-sm text-gray-500">${priceRange[0]}</span>
             <input
-              type="number"
+              type="range"
               min="0"
+              max="1000"
               value={priceRange[1]}
               onChange={(e) => handlePriceChange([priceRange[0], Number(e.target.value)])}
-              className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-24 sm:text-sm border-gray-300 rounded-md"
+              className="w-1/2"
             />
+            <span className="text-sm text-gray-500">${priceRange[1]}</span>
           </div>
         </div>
 

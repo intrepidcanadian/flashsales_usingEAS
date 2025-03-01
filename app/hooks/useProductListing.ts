@@ -10,7 +10,7 @@ interface ProductData {
   price: number;
   category: string;
   imageUrl?: string;
-  type: 'nft' | 'physical';
+  type: 'physical';
   verificationRequired: VerificationRequirement;
   tags?: string[];
 }
@@ -23,8 +23,6 @@ interface StoredProduct extends ProductData {
   rating: number;
   numReviews: number;
   reviews: any[];
-  contractAddress?: string;
-  tokenId?: string;
 }
 
 export function useProductListing() {
@@ -72,36 +70,23 @@ export function useProductListing() {
         rating: 0,
         numReviews: 0,
         reviews: [],
-        tags: productData.tags || [],
-        // For NFTs, generate a unique contract address and token ID
-        ...(productData.type === 'nft' ? {
-          contractAddress: '0x' + Array(40).fill(0).map(() => Math.floor(Math.random() * 16).toString(16)).join(''),
-          tokenId: Math.floor(Math.random() * 1000000).toString()
-        } : {})
+        tags: productData.tags || []
       };
 
       // Store the product data
-      // In a real app, this would be stored in a database or on-chain
       const existingProducts = JSON.parse(localStorage.getItem('products') || '[]');
       localStorage.setItem('products', JSON.stringify([...existingProducts, enrichedProductData]));
-
-      // Emit an event for product creation
-      const event = new CustomEvent('productCreated', { detail: enrichedProductData });
-      window.dispatchEvent(event);
 
       toast.success('Product listed successfully!');
       return enrichedProductData;
     } catch (error) {
       console.error('Error listing product:', error);
-      toast.error('Failed to list product. Please try again.');
+      toast.error('Failed to list product');
       return null;
     } finally {
       setIsLoading(false);
     }
   };
 
-  return {
-    listProduct,
-    isLoading
-  };
+  return { listProduct, isLoading };
 } 

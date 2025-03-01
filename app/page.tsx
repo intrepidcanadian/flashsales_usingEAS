@@ -15,13 +15,12 @@ import { useAccount } from 'wagmi';
 import { AttestationInfo } from './components/common/AttestationInfo';
 import { ProductCard } from './components/product/ProductCard';
 import { verifyCoinbaseAttestation, VerificationRequirement } from './utils/coinbaseAttestation';
-import { CheckoutModal } from './components/checkout/CheckoutModal';
-import { ProductListingForm } from './components/merchant/ProductListingForm';
+import { FlashSale } from './components/flashsale/FlashSale';
+import { CartModal } from './components/cart/CartModal';
 
 export default function Home() {
   const { state: cart, dispatch, handleCheckout } = useCart();
   const [isCartOpen, setIsCartOpen] = useState(false);
-  const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
   const [testMode, setTestMode] = useState(false);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -35,7 +34,6 @@ export default function Home() {
   const { address } = useAccount();
   const attestation = useAttestation({ walletAddress: address });
   const [coinbaseVerification, setCoinbaseVerification] = useState<{ region: string; hasTradingAccess: boolean } | null>(null);
-  const [showProductForm, setShowProductForm] = useState(false);
 
   // Get unique tags from all products
   const availableTags = Array.from(
@@ -178,25 +176,17 @@ export default function Home() {
         quantity: 1
       }
     });
-    toast.success(`${product.name} added to cart!`, {
-      icon: '🛍️',
-      style: {
-        borderRadius: '10px',
-        background: '#333',
-        color: '#fff',
-      },
-    });
   };
 
   const handleCheckoutClick = async () => {
     setIsCartOpen(false);
-    setIsCheckoutModalOpen(true);
+    handleCheckout(testMode);
   };
 
   const scrollCarousel = (direction: 'left' | 'right') => {
     const container = document.getElementById('products-carousel');
     if (container) {
-      const scrollAmount = 400; // Adjust this value to control scroll distance
+      const scrollAmount = 400;
       const newPosition = direction === 'left' 
         ? container.scrollLeft - scrollAmount 
         : container.scrollLeft + scrollAmount;
@@ -209,8 +199,8 @@ export default function Home() {
   };
 
   const getPlaceholderType = (product: Product) => {
-    if (product.type === 'nft') return 'nft';
-    return 'physical-items';
+    if (product.type === 'physical') return 'physical-items';
+    return 'nft';
   };
 
   return (
@@ -220,7 +210,7 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center">
             <div className="flex items-center space-x-8">
-              <h1 className="text-2xl font-bold text-gray-900">Global Marketplace</h1>
+              <h1 className="text-2xl font-bold text-gray-900">Flash Sales Through On-Chain Verification</h1>
               <nav className="hidden md:flex space-x-4">
                 <Link
                   href="/"
@@ -228,27 +218,12 @@ export default function Home() {
                 >
                   Home
                 </Link>
-                <Link
-                  href="/orders"
-                  className="text-gray-500 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium"
-                >
-                  Orders
-                </Link>
-                {/* Add Product link - accessible to all connected wallets */}
-                {address && (
-                  <button
-                    onClick={() => setShowProductForm(true)}
-                    className="text-gray-500 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium"
-                  >
-                    Add Product
-                  </button>
-                )}
               </nav>
             </div>
             
-            {/* Right side header items */}
+         
             <div className="flex items-center space-x-4">
-              {/* Test Mode Toggle */}
+            
               {process.env.NODE_ENV === 'development' && (
                 <div className="flex items-center space-x-2">
                   <span className="text-sm text-gray-500">Test Mode</span>
@@ -272,7 +247,6 @@ export default function Home() {
                 </div>
               )}
               
-              {/* Cart Button */}
               <button
                 onClick={() => setIsCartOpen(true)}
                 className="relative p-2"
@@ -373,7 +347,6 @@ export default function Home() {
 
           {/* Products Section */}
           <div className="relative">
-            {/* Carousel Controls */}
             <div className="flex items-center justify-end mb-4">
               <button
                 onClick={() => setIsAutoScrollPaused(!isAutoScrollPaused)}
@@ -422,7 +395,7 @@ export default function Home() {
               onMouseEnter={() => setIsAutoScrollPaused(true)}
               onMouseLeave={() => setIsAutoScrollPaused(false)}
             >
-              {/* Original products */}
+            
               {filteredProducts.map((product) => (
                 <div key={product.id} className="flex-none w-80 snap-start">
                   <ProductCard product={{
@@ -438,7 +411,7 @@ export default function Home() {
                   }} onAddToCart={addToCart} />
                 </div>
               ))}
-              {/* Duplicated products for infinite scroll */}
+             
               {filteredProducts.map((product) => (
                 <div key={`${product.id}-duplicate`} className="flex-none w-80 snap-start">
                   <ProductCard product={{
@@ -457,197 +430,23 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Add this CSS to hide scrollbar but keep functionality */}
           <style jsx global>{`
-            .hide-scrollbar::-webkit-scrollbar {
-              display: none;
-            }
-            .hide-scrollbar {
+            #products-carousel {
               -ms-overflow-style: none;
               scrollbar-width: none;
+            }
+            #products-carousel::-webkit-scrollbar {
+              display: none;
             }
           `}</style>
         </div>
       </main>
 
-      {/* Cart Sidebar */}
-      {isCartOpen && (
-        <div className="fixed inset-0 overflow-hidden z-50">
-          <div className="absolute inset-0 overflow-hidden">
-            <div className="absolute inset-0 bg-gray-500 bg-opacity-75 transition-opacity" />
-            <div className="fixed inset-y-0 right-0 pl-10 max-w-full flex">
-              <div className="w-screen max-w-md">
-                <div className="h-full flex flex-col bg-white shadow-xl">
-                  <div className="flex-1 py-6 overflow-y-auto px-4 sm:px-6">
-                    <div className="flex items-start justify-between">
-                      <h2 className="text-lg font-medium text-gray-900">
-                        Shopping Cart
-                      </h2>
-                      <button
-                        onClick={() => setIsCartOpen(false)}
-                        className="ml-3 h-7 flex items-center"
-                      >
-                        <span className="sr-only">Close panel</span>
-                        <svg
-                          className="h-6 w-6"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M6 18L18 6M6 6l12 12"
-                          />
-                        </svg>
-                      </button>
-                    </div>
-
-                    <div className="mt-8">
-                      {cart.items.length === 0 ? (
-                        <p className="text-gray-500">Your cart is empty</p>
-                      ) : (
-                        <div className="flow-root">
-                          <ul className="-my-6 divide-y divide-gray-200">
-                            {cart.items.map((item) => (
-                              <li key={item.id} className="py-6 flex">
-                                <div className="flex-shrink-0 w-24 h-24 overflow-hidden rounded-md">
-                                  <img
-                                    src={item.image}
-                                    alt={item.name}
-                                    className="w-full h-full object-cover"
-                                  />
-                                </div>
-                                <div className="ml-4 flex-1 flex flex-col">
-                                  <div>
-                                    <div className="flex justify-between text-base font-medium text-gray-900">
-                                      <h3>{item.name}</h3>
-                                      <p className="ml-4">
-                                        {item.type === 'nft'
-                                          ? `${item.price} ETH`
-                                          : `$${Number(item.price).toFixed(2)}`}
-                                      </p>
-                                    </div>
-                                    <p className="mt-1 text-sm text-gray-500">
-                                      {item.type}
-                                    </p>
-                                  </div>
-                                  <div className="flex-1 flex items-end justify-between text-sm">
-                                    <div className="flex items-center">
-                                      <label className="mr-2">Qty</label>
-                                      <input
-                                        type="number"
-                                        min="1"
-                                        value={item.quantity}
-                                        onChange={(e) =>
-                                          dispatch({
-                                            type: 'UPDATE_QUANTITY',
-                                            payload: {
-                                              id: item.id,
-                                              quantity: parseInt(e.target.value),
-                                            },
-                                          })
-                                        }
-                                        className="w-16 rounded-md border-gray-300"
-                                      />
-                                    </div>
-                                    <button
-                                      type="button"
-                                      onClick={() =>
-                                        dispatch({
-                                          type: 'REMOVE_ITEM',
-                                          payload: item.id,
-                                        })
-                                      }
-                                      className="font-medium text-blue-600 hover:text-blue-500"
-                                    >
-                                      Remove
-                                    </button>
-                                  </div>
-                                </div>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {cart.items.length > 0 && (
-                    <div className="border-t border-gray-200 py-6 px-4 sm:px-6">
-                      <div className="flex justify-between text-base font-medium text-gray-900">
-                        <p>Subtotal</p>
-                        <p>
-                          {cart.items.some((item) => item.type === 'nft') && cart.items.some((item) => item.type === 'physical')
-                            ? 'Mixed currencies'
-                            : cart.items[0]?.type === 'nft'
-                            ? `${cart.total.toFixed(3)} ETH`
-                            : `$${cart.total.toFixed(2)}`}
-                        </p>
-                      </div>
-                      <p className="mt-0.5 text-sm text-gray-500">
-                        Shipping and taxes calculated at checkout.
-                      </p>
-                      <div className="mt-6">
-                        <button
-                          onClick={handleCheckoutClick}
-                          disabled={cart.isProcessing}
-                          className={`w-full flex justify-center items-center px-6 py-3 border border-transparent rounded-md shadow-sm text-base font-medium text-white bg-blue-600 hover:bg-blue-700 ${
-                            cart.isProcessing ? 'opacity-50 cursor-not-allowed' : ''
-                          }`}
-                        >
-                          {cart.isProcessing ? (
-                            <>
-                              <svg
-                                className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
-                                xmlns="http://www.w3.org/2000/svg"
-                                fill="none"
-                                viewBox="0 0 24 24"
-                              >
-                                <circle
-                                  className="opacity-25"
-                                  cx="12"
-                                  cy="12"
-                                  r="10"
-                                  stroke="currentColor"
-                                  strokeWidth="4"
-                                />
-                                <path
-                                  className="opacity-75"
-                                  fill="currentColor"
-                                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                                />
-                              </svg>
-                              Processing...
-                            </>
-                          ) : (
-                            <>
-                              Proceed to Checkout
-                              {testMode && ' (Test Mode)'}
-                            </>
-                          )}
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Checkout Modal */}
-      <CheckoutModal
-        isOpen={isCheckoutModalOpen}
-        onClose={() => setIsCheckoutModalOpen(false)}
-      />
-
-      {/* Product Listing Form Modal */}
-      <ProductListingForm
-        isOpen={showProductForm}
-        onClose={() => setShowProductForm(false)}
+      {/* Cart Modal */}
+      <CartModal
+        isOpen={isCartOpen}
+        onClose={() => setIsCartOpen(false)}
+        onCheckout={handleCheckoutClick}
       />
     </div>
   );

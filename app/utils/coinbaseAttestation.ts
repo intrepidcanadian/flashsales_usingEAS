@@ -56,7 +56,7 @@ export async function verifyCoinbaseAttestation(address: string): Promise<Coinba
 
     // Get region attestation
     const regionAttestation = await getAttestationData(REGION_ATTESTATION_UID);
-    if (!regionAttestation || !regionAttestation.data) {
+    if (!regionAttestation) {
       console.log('Could not fetch region attestation data');
       return {
         region: '',
@@ -65,25 +65,26 @@ export async function verifyCoinbaseAttestation(address: string): Promise<Coinba
     }
 
     let region = '';
-    try {
-      // Try to decode the region data
-      const schemaEncoder = new SchemaEncoder("string region");
-      const decodedData = schemaEncoder.decodeData(regionAttestation.data);
-      if (decodedData && decodedData[0] && decodedData[0].value.value) {
-        region = decodedData[0].value.value as string;
-      }
-    } catch (error) {
-      console.error('Error decoding region data:', error);
-      // Try alternative schema format
+    if (regionAttestation.data) {
       try {
-        const altSchemaEncoder = new SchemaEncoder("bytes32 region");
-        const decodedData = altSchemaEncoder.decodeData(regionAttestation.data);
-        if (decodedData && decodedData[0] && decodedData[0].value.value) {
-          const regionBytes = decodedData[0].value.value as string;
-          region = ethers.decodeBytes32String(regionBytes).trim().replace(/\0/g, '');
+        // Try to decode the region data with the correct schema
+        const schemaEncoder = new SchemaEncoder("string region");
+        const decodedData = schemaEncoder.decodeData(regionAttestation.data);
+        if (decodedData && decodedData[0]) {
+          region = decodedData[0].value.value as string;
         }
-      } catch (altError) {
-        console.error('Error decoding region data with alternative schema:', altError);
+      } catch (error) {
+        console.error('Error decoding region data:', error);
+        // Try alternative schema format
+        try {
+          const altSchemaEncoder = new SchemaEncoder("address recipient,string region");
+          const decodedData = altSchemaEncoder.decodeData(regionAttestation.data);
+          if (decodedData && decodedData[1]) {
+            region = decodedData[1].value.value as string;
+          }
+        } catch (altError) {
+          console.error('Error decoding region data with alternative schema:', altError);
+        }
       }
     }
 

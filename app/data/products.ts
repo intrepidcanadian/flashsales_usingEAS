@@ -10,17 +10,89 @@ export interface Review {
   createdAt: string;
 }
 
+export interface FlashSale {
+  id: string;
+  name: string;
+  description: string;
+  originalPrice: number;
+  salePrice: number;
+  image?: string;
+  video: string;
+  type: 'physical';
+  categoryId: string;
+  tags: string[];
+  rating: number;
+  numReviews: number;
+  reviews: Review[];
+  sellerAddress: string;
+  region: string;
+  verificationRequired: VerificationRequirement;
+  endTime?: number;
+}
+
+export const flashSaleProducts: FlashSale[] = [
+  {
+    id: 'flash-1',
+    name: 'Samba OG Shoes - White',
+    description: 'Classic Samba OG shoes in white. Limited time flash sale for verified Canadian traders only!',
+    originalPrice: 149.99,
+    salePrice: 89.99,
+    type: 'physical',
+    video: '/flashsale/Samba_OG_Shoes_White_B75806_video.webm',
+    categoryId: 'shoes',
+    tags: ['shoes', 'fashion', 'limited', 'CA'],
+    rating: 4.8,
+    numReviews: 156,
+    reviews: [],
+    sellerAddress: '0x115aBfDa6b101bDC813B90c2780952E89E185F54',
+    region: 'CA',
+    verificationRequired: VerificationRequirement.REGION
+  },
+  {
+    id: 'flash-2',
+    name: 'Samba OG Shoes - Black',
+    description: 'Classic Samba OG shoes in black. Limited time flash sale for verified Canadian traders only!',
+    originalPrice: 149.99,
+    salePrice: 89.99,
+    type: 'physical',
+    video: '/flashsale/Samba_OG_Shoes_Black_B75807_video.webm',
+    categoryId: 'shoes',
+    tags: ['shoes', 'fashion', 'limited', 'CA'],
+    rating: 4.9,
+    numReviews: 142,
+    reviews: [],
+    sellerAddress: '0x115aBfDa6b101bDC813B90c2780952E89E185F54',
+    region: 'CA',
+    verificationRequired: VerificationRequirement.REGION
+  },
+  {
+    id: 'flash-3',
+    name: 'Superstar II Shoes - Black',
+    description: 'Iconic Superstar II shoes in black. Limited time flash sale for verified Canadian traders only!',
+    originalPrice: 129.99,
+    salePrice: 79.99,
+    type: 'physical',
+    video: '/flashsale/Superstar_II_Shoes_Black_JH5470_video.webm',
+    categoryId: 'shoes',
+    tags: ['shoes', 'fashion', 'limited', 'CA'],
+    rating: 4.7,
+    numReviews: 98,
+    reviews: [],
+    sellerAddress: '0x115aBfDa6b101bDC813B90c2780952E89E185F54',
+    region: 'CA',
+    verificationRequired: VerificationRequirement.REGION
+  }
+];
+
 export interface Product {
   id: string;
   name: string;
   description: string;
   price: number;
   image?: string;
-  type: 'physical' | 'nft';
+  type: 'physical';
   categoryId: string;
   tags: string[];
-  contractAddress?: string;
-  tokenId?: string;
   rating: number;
   numReviews: number;
   reviews: Review[];
@@ -32,14 +104,12 @@ export interface Product {
 export const products: Product[] = [
   {
     id: '1',
-    name: 'Limited Edition NFT',
-    description: 'A unique digital collectible. Requires US region verification and trading access verification.',
-    price: 0.1,
-    type: 'nft',
-    categoryId: 'nfts',
-    tags: ['art', 'digital', 'collectible', 'US', 'trading'],
-    contractAddress: '0x1234567890123456789012345678901234567890',
-    tokenId: '1',
+    name: 'Limited Edition Art Print',
+    description: 'A unique physical art print. Requires US region verification and trading access verification.',
+    price: 199.99,
+    type: 'physical',
+    categoryId: 'art',
+    tags: ['art', 'print', 'collectible', 'US', 'trading'],
     rating: 4.5,
     numReviews: 12,
     reviews: [
@@ -92,15 +162,13 @@ export const products: Product[] = [
   },
   {
     id: '3',
-    name: 'Collector NFT',
-    description: 'Rare collectible NFT from popular series. Available only to verified EU residents.',
-    price: 0.05,
+    name: 'Limited Edition Trading Card Set',
+    description: 'Premium physical trading card collection. Available only to verified EU residents.',
+    price: 49.99,
     image: 'https://picsum.photos/400/302',
-    type: 'nft',
-    contractAddress: '0x1234567890123456789012345678901234567890',
-    tokenId: '2',
+    type: 'physical',
     categoryId: '1',
-    tags: ['collectible', 'rare', 'series', 'EU'],
+    tags: ['collectible', 'rare', 'cards', 'EU'],
     rating: 4.2,
     numReviews: 8,
     reviews: [],
@@ -110,15 +178,13 @@ export const products: Product[] = [
   },
   {
     id: '4',
-    name: 'Digital Game Asset',
-    description: 'Powerful in-game item with unique properties. Requires trading verification.',
-    price: 0.02,
+    name: 'Premium Gaming Collectible',
+    description: 'Limited edition physical gaming collectible. Requires trading verification.',
+    price: 299.99,
     image: 'https://picsum.photos/400/303',
-    type: 'nft',
-    contractAddress: '0x1234567890123456789012345678901234567890',
-    tokenId: '3',
+    type: 'physical',
     categoryId: '3',
-    tags: ['gaming', 'item', 'utility', 'trading'],
+    tags: ['gaming', 'collectible', 'limited', 'trading'],
     rating: 4.0,
     numReviews: 15,
     reviews: [],
@@ -144,15 +210,13 @@ export const products: Product[] = [
   },
   {
     id: '6',
-    name: 'Digital Music Album',
-    description: 'Exclusive digital album with bonus tracks. Available only to verified APAC residents.',
-    price: 0.015,
+    name: 'Exclusive Vinyl Record Collection',
+    description: 'Limited edition vinyl record collection with bonus tracks. Available only to verified APAC residents.',
+    price: 149.99,
     image: 'https://picsum.photos/400/305',
-    type: 'nft',
-    contractAddress: '0x1234567890123456789012345678901234567890',
-    tokenId: '4',
+    type: 'physical',
     categoryId: '3',
-    tags: ['music', 'audio', 'entertainment', 'APAC'],
+    tags: ['music', 'vinyl', 'entertainment', 'APAC'],
     rating: 4.4,
     numReviews: 18,
     reviews: [],
@@ -162,15 +226,13 @@ export const products: Product[] = [
   },
   {
     id: '7',
-    name: 'Canadian Crypto Art',
-    description: 'Exclusive digital art collection. Available only to verified Canadian residents.',
-    price: 1.5,
+    name: 'Canadian Art Print Collection',
+    description: 'Exclusive physical art print collection. Available only to verified Canadian residents.',
+    price: 299.99,
     image: 'https://picsum.photos/400/306',
-    type: 'nft',
-    contractAddress: '0x1234567890123456789012345678901234567890',
-    tokenId: '5',
+    type: 'physical',
     categoryId: '1',
-    tags: ['art', 'digital', 'regional', 'CA'],
+    tags: ['art', 'print', 'regional', 'CA'],
     rating: 4.6,
     numReviews: 0,
     reviews: [],

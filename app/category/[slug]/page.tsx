@@ -12,9 +12,9 @@ import { ChevronDown, ChevronUp } from 'lucide-react';
 const categories = [
   {
     id: '1',
-    name: 'NFT Art',
-    description: 'Digital art collectibles',
-    slug: 'nft-art',
+    name: 'Art Prints',
+    description: 'Limited edition art prints',
+    slug: 'art-prints',
   },
   {
     id: '2',
@@ -25,9 +25,9 @@ const categories = [
   },
   {
     id: '3',
-    name: 'Physical Items',
-    description: 'Merchandise and collectibles',
-    slug: 'physical-items',
+    name: 'Collectibles',
+    description: 'Physical collectibles and merchandise',
+    slug: 'collectibles',
   },
 ];
 
@@ -36,7 +36,7 @@ export default function CategoryPage() {
   const router = useRouter();
   const { dispatch } = useCart();
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedType, setSelectedType] = useState<'all' | 'nft' | 'physical'>('all');
+  const [selectedType, setSelectedType] = useState<'all' | 'physical'>('all');
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 1000]);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
@@ -46,9 +46,9 @@ export default function CategoryPage() {
   
   // Get products for this category
   const categoryProducts = products.filter(product => {
-    if (params.slug === 'nft-art') return product.type === 'nft';
-    if (params.slug === 'physical-art') return product.type === 'physical' && product.tags.includes('art');
-    if (params.slug === 'physical-items') return product.type === 'physical' && !product.tags.includes('art');
+    if (params.slug === 'art-prints') return product.tags.includes('print');
+    if (params.slug === 'physical-art') return product.tags.includes('art');
+    if (params.slug === 'collectibles') return product.tags.includes('collectible');
     return true;
   });
 

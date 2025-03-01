@@ -87,14 +87,6 @@ export function ProductList({ initialProducts, pageSize = 12 }: ProductListProps
 
   const handleAddToCart = (product: Product) => {
     cartDispatch({ type: 'ADD_ITEM', payload: { ...product, quantity: 1 } });
-    toast.success(`${product.name} added to cart!`, {
-      icon: '🛍️',
-      style: {
-        borderRadius: '10px',
-        background: '#333',
-        color: '#fff',
-      },
-    });
   };
 
   return (

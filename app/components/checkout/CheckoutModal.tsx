@@ -79,11 +79,22 @@ export function CheckoutModal({ isOpen, onClose }: Props) {
                         {cart.items.map((item) => (
                           <li key={item.id} className="py-6 flex">
                             <div className="flex-shrink-0 w-24 h-24 overflow-hidden rounded-md">
-                              <img
-                                src={item.image}
-                                alt={item.name}
-                                className="w-full h-full object-cover"
-                              />
+                              {item.video ? (
+                                <video
+                                  autoPlay
+                                  loop
+                                  muted
+                                  className="w-full h-full object-cover"
+                                >
+                                  <source src={item.video} type="video/webm" />
+                                </video>
+                              ) : (
+                                <img
+                                  src={item.image}
+                                  alt={item.name}
+                                  className="w-full h-full object-cover"
+                                />
+                              )}
                             </div>
                             <div className="ml-4 flex-1">
                               <div className="flex justify-between">
