@@ -13,10 +13,12 @@ interface ProductCardProps {
     sellerAddress: string;
     region: string;
     verificationRequired: VerificationRequirement;
+    type: 'physical' | 'nft';
   };
+  onAddToCart?: (product: any) => void;
 }
 
-export function ProductCard({ product }: ProductCardProps) {
+export function ProductCard({ product, onAddToCart }: ProductCardProps) {
   const { address } = useAccount();
   const [loading, setLoading] = useState(false);
   const publicClient = usePublicClient();
@@ -66,8 +68,9 @@ export function ProductCard({ product }: ProductCardProps) {
       return;
     }
 
-    // Add to cart logic here
-    toast.success('Added to cart!');
+    if (onAddToCart) {
+      onAddToCart(product);
+    }
   };
 
   const getVerificationBadge = () => {
@@ -108,7 +111,7 @@ export function ProductCard({ product }: ProductCardProps) {
         return (
           <span className={`${baseClasses} ${purchaseStatus.canPurchase ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
             {icon}
-            {purchaseStatus.canPurchase ? 'Fully Verified' : 'Region & Trading Verification Required'}
+            {purchaseStatus.canPurchase ? 'Region & Trading Verified' : 'Region & Trading Verification Required'}
           </span>
         );
       default:
@@ -158,7 +161,7 @@ export function ProductCard({ product }: ProductCardProps) {
         <p className="mt-1 text-sm text-gray-500">{product.description}</p>
         <div className="mt-2 flex items-center justify-between">
           <span className="text-lg font-medium text-gray-900">
-            {product.price} ETH
+            {product.type === 'physical' ? `$${Number(product.price).toFixed(2)}` : `${product.price} ETH`}
           </span>
         </div>
 

@@ -1,11 +1,20 @@
 import { EAS, SchemaEncoder } from "@ethereum-attestation-service/eas-sdk";
 import { ethers } from 'ethers';
+import { createPublicClient, http } from 'viem';
+import { base } from 'viem/chains';
 
 // Base Mainnet EAS Contract Address
-const EAS_CONTRACT_ADDRESS = "0xA1207F3BBa224E2c9c3c6D5aF63D0eb1582Ce587";
+const EAS_CONTRACT_ADDRESS = "0x4200000000000000000000000000000000000021";
 
-// Coinbase Verification Schema (example - replace with actual schema from Base)
-const COINBASE_VERIFICATION_SCHEMA = "0x46726f6d2043422c20776974682076657269666965642074726164696e672061636365737320616e6420726567696f6e";
+// Known attestation UIDs
+const REGION_ATTESTATION_UID = "0xa76f5d6269e956f535eb3c295889075a08c740dfc54ee7378390cff58e0a9a26";
+const TRADING_ATTESTATION_UID = "0xd323f38fc39e6dfc9e9a01f05e544f3829c5c1c01fb6273353ea59c682e00a7d";
+
+// Initialize the public client for Base
+const publicClient = createPublicClient({
+  chain: base,
+  transport: http()
+});
 
 export enum VerificationRequirement {
   NONE = "NONE",
@@ -15,35 +24,75 @@ export enum VerificationRequirement {
 }
 
 interface CoinbaseAttestationData {
-  hasVerifiedAccount: boolean;
-  hasTradingAccess: boolean;
   region: string;
-  timestamp: number;
-  isActive: boolean;
+  hasTradingAccess: boolean;
+}
+
+async function getAttestationData(uid: string) {
+  try {
+    const provider = new ethers.JsonRpcProvider('https://mainnet.base.org');
+    const eas = new EAS(EAS_CONTRACT_ADDRESS);
+    eas.connect(provider);
+    
+    const attestation = await eas.getAttestation(uid);
+    
+    // Check if attestation exists and has data
+    if (!attestation || !attestation.data) {
+      return null;
+    }
+    
+    return attestation;
+  } catch (error) {
+    console.error("Error fetching Metadata:", error);
+    return null;
+  }
 }
 
 export async function verifyCoinbaseAttestation(address: string): Promise<CoinbaseAttestationData | null> {
   try {
-    // Initialize EAS SDK
-    const eas = new EAS(EAS_CONTRACT_ADDRESS);
-    
-    // Get attestation for the address
-    const attestation = await eas.getAttestation(COINBASE_VERIFICATION_SCHEMA, address);
-    
-    if (!attestation) {
-      return null;
+    // Get trading attestation
+    const tradingAttestation = await getAttestationData(TRADING_ATTESTATION_UID);
+    const hasTradingAccess = tradingAttestation !== null;
+
+    // Get region attestation
+    const regionAttestation = await getAttestationData(REGION_ATTESTATION_UID);
+    if (!regionAttestation || !regionAttestation.data) {
+      console.log('Could not fetch region attestation data');
+      return {
+        region: '',
+        hasTradingAccess
+      };
     }
 
-    // Decode the attestation data
-    const schemaEncoder = new SchemaEncoder("bool hasVerifiedAccount, bool hasTradingAccess, string region, uint64 timestamp, bool isActive");
-    const decodedData = schemaEncoder.decodeData(attestation.data);
+    let region = '';
+    try {
+      // Try to decode the region data
+      const schemaEncoder = new SchemaEncoder("string region");
+      const decodedData = schemaEncoder.decodeData(regionAttestation.data);
+      if (decodedData && decodedData[0] && decodedData[0].value.value) {
+        region = decodedData[0].value.value as string;
+      }
+    } catch (error) {
+      console.error('Error decoding region data:', error);
+      // Try alternative schema format
+      try {
+        const altSchemaEncoder = new SchemaEncoder("bytes32 region");
+        const decodedData = altSchemaEncoder.decodeData(regionAttestation.data);
+        if (decodedData && decodedData[0] && decodedData[0].value.value) {
+          const regionBytes = decodedData[0].value.value as string;
+          region = ethers.decodeBytes32String(regionBytes).trim().replace(/\0/g, '');
+        }
+      } catch (altError) {
+        console.error('Error decoding region data with alternative schema:', altError);
+      }
+    }
+
+    console.log('Decoded region:', region);
+    console.log('Has trading access:', hasTradingAccess);
 
     return {
-      hasVerifiedAccount: decodedData[0].value.value as boolean,
-      hasTradingAccess: decodedData[1].value.value as boolean,
-      region: decodedData[2].value.value as string,
-      timestamp: Number(decodedData[3].value.value),
-      isActive: decodedData[4].value.value as boolean
+      region,
+      hasTradingAccess
     };
   } catch (error) {
     console.error('Error verifying Coinbase attestation:', error);
@@ -52,15 +101,8 @@ export async function verifyCoinbaseAttestation(address: string): Promise<Coinba
 }
 
 export function isRegionAllowed(userRegion: string, productRegion: string): boolean {
-  if (!productRegion || !userRegion) return false;
+  if (!productRegion || !userRegion) return true; // If no region specified, allow access
   return userRegion === productRegion;
-}
-
-export function getRegionFromAttestation(attestationData: CoinbaseAttestationData | null): string {
-  if (!attestationData || !attestationData.hasVerifiedAccount || !attestationData.isActive) {
-    return '';
-  }
-  return attestationData.region;
 }
 
 // Helper function to check if a user can purchase a product based on requirements
@@ -87,21 +129,13 @@ export async function canPurchaseProduct(
     };
   }
 
-  // Check if attestation is valid and active
-  if (!attestation.hasVerifiedAccount || !attestation.isActive) {
-    return { 
-      canPurchase: false,
-      reason: 'Invalid or inactive verification'
-    };
-  }
-
   // Check specific requirements
   switch (verificationRequired) {
     case VerificationRequirement.REGION:
       if (!isRegionAllowed(attestation.region, productRegion)) {
         return {
           canPurchase: false,
-          reason: 'Region restriction: Not available in your region'
+          reason: `Region restriction: This product is only available in ${productRegion}`
         };
       }
       return { canPurchase: true };
@@ -125,7 +159,7 @@ export async function canPurchaseProduct(
       if (!isRegionAllowed(attestation.region, productRegion)) {
         return {
           canPurchase: false,
-          reason: 'Region restriction: Not available in your region'
+          reason: `Region restriction: This product is only available in ${productRegion}`
         };
       }
       return { canPurchase: true };

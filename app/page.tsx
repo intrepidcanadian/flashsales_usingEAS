@@ -14,10 +14,14 @@ import { useAttestation } from './hooks/useAttestation';
 import { useAccount } from 'wagmi';
 import { AttestationInfo } from './components/common/AttestationInfo';
 import { ProductCard } from './components/product/ProductCard';
+import { verifyCoinbaseAttestation, VerificationRequirement } from './utils/coinbaseAttestation';
+import { CheckoutModal } from './components/checkout/CheckoutModal';
+import { ProductListingForm } from './components/merchant/ProductListingForm';
 
 export default function Home() {
   const { state: cart, dispatch, handleCheckout } = useCart();
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
   const [testMode, setTestMode] = useState(false);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -26,9 +30,12 @@ export default function Home() {
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [isSearchVisible, setIsSearchVisible] = useState(true);
   const [scrollPosition, setScrollPosition] = useState(0);
+  const [scrollSpeed, setScrollSpeed] = useState(3000); // Default 3 seconds
   const [isAutoScrollPaused, setIsAutoScrollPaused] = useState(false);
   const { address } = useAccount();
   const attestation = useAttestation({ walletAddress: address });
+  const [coinbaseVerification, setCoinbaseVerification] = useState<{ region: string; hasTradingAccess: boolean } | null>(null);
+  const [showProductForm, setShowProductForm] = useState(false);
 
   // Get unique tags from all products
   const availableTags = Array.from(
@@ -75,38 +82,93 @@ export default function Home() {
     const interval = setInterval(() => {
       const container = document.getElementById('products-carousel');
       if (container) {
-        const isAtEnd = container.scrollLeft >= (container.scrollWidth - container.clientWidth);
-        if (isAtEnd) {
-          // Reset to start when reaching the end
-          container.scrollTo({
-            left: 0,
-            behavior: 'smooth'
-          });
+        const isNearEnd = container.scrollLeft >= (container.scrollWidth - container.clientWidth - 100);
+        if (isNearEnd) {
+          // When near the end, quickly jump back to start without animation
+          container.style.scrollBehavior = 'auto';
+          container.scrollLeft = 0;
+          container.style.scrollBehavior = 'smooth';
         } else {
-          // Scroll by one card width
+          // Normal smooth scrolling
           container.scrollBy({
             left: 320,
             behavior: 'smooth'
           });
         }
       }
-    }, 3000); // Scroll every 3 seconds
+    }, scrollSpeed);
 
     return () => clearInterval(interval);
-  }, [searchTerm, isAutoScrollPaused]);
+  }, [searchTerm, isAutoScrollPaused, scrollSpeed]);
+
+  // Add effect to check Coinbase verification
+  useEffect(() => {
+    async function checkCoinbaseVerification() {
+      if (!address) return;
+      const verification = await verifyCoinbaseAttestation(address);
+      setCoinbaseVerification(verification);
+    }
+    checkCoinbaseVerification();
+  }, [address]);
 
   const addToCart = (product: Product) => {
-    // Check attestation for NFT products
-    if (product.type === 'nft' && !attestation.isVerified) {
-      toast.error('Verification required to purchase NFTs', {
-        icon: '⚠️',
-        style: {
-          borderRadius: '10px',
-          background: '#333',
-          color: '#fff',
-        },
-      });
-      return;
+    // Only check verification if required
+    if (product.verificationRequired !== VerificationRequirement.NONE) {
+      if (!address) {
+        toast.error('Please connect your wallet first', {
+          icon: '⚠️',
+          style: {
+            borderRadius: '10px',
+            background: '#333',
+            color: '#fff',
+          },
+        });
+        return;
+      }
+
+      // Check if verification is still loading
+      if (!coinbaseVerification) {
+        toast.loading('Checking verification status...', {
+          style: {
+            borderRadius: '10px',
+            background: '#333',
+            color: '#fff',
+          },
+        });
+        return;
+      }
+
+      // Check region requirement
+      if ((product.verificationRequired === VerificationRequirement.REGION || 
+          product.verificationRequired === VerificationRequirement.BOTH) &&
+          product.region && coinbaseVerification.region !== product.region) {
+        toast.error(`This item is only available in ${product.region}`, {
+          icon: '⚠️',
+          style: {
+            borderRadius: '10px',
+            background: '#333',
+            color: '#fff',
+          },
+          duration: 5000,
+        });
+        return;
+      }
+
+      // Check trading requirement
+      if ((product.verificationRequired === VerificationRequirement.TRADING || 
+          product.verificationRequired === VerificationRequirement.BOTH) &&
+          !coinbaseVerification.hasTradingAccess) {
+        toast.error('Trading verification required for this item', {
+          icon: '⚠️',
+          style: {
+            borderRadius: '10px',
+            background: '#333',
+            color: '#fff',
+          },
+          duration: 5000,
+        });
+        return;
+      }
     }
 
     dispatch({
@@ -127,12 +189,8 @@ export default function Home() {
   };
 
   const handleCheckoutClick = async () => {
-    try {
-      await handleCheckout(testMode);
-    } catch (error) {
-      console.error('Checkout error:', error);
-      toast.error('Failed to process checkout');
-    }
+    setIsCartOpen(false);
+    setIsCheckoutModalOpen(true);
   };
 
   const scrollCarousel = (direction: 'left' | 'right') => {
@@ -162,7 +220,7 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center">
             <div className="flex items-center space-x-8">
-              <h1 className="text-2xl font-bold text-gray-900">OnchainKit Store</h1>
+              <h1 className="text-2xl font-bold text-gray-900">Global Marketplace</h1>
               <nav className="hidden md:flex space-x-4">
                 <Link
                   href="/"
@@ -176,6 +234,15 @@ export default function Home() {
                 >
                   Orders
                 </Link>
+                {/* Add Product link - accessible to all connected wallets */}
+                {address && (
+                  <button
+                    onClick={() => setShowProductForm(true)}
+                    className="text-gray-500 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium"
+                  >
+                    Add Product
+                  </button>
+                )}
               </nav>
             </div>
             
@@ -230,7 +297,7 @@ export default function Home() {
                   </span>
                 )}
               </button>
-              
+
               {/* Wallet */}
               <Wallet>
                 <ConnectWallet>
@@ -254,10 +321,10 @@ export default function Home() {
       </header>
 
       {/* Main Content */}
-      <main className="pt-20">
+      <main className="pt-24">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Navigation and Filters */}
-          <div className="border-b border-gray-200">
+          <div className="border-b border-gray-200 mt-8">
             <div className="bg-gray-50 rounded-lg mb-4">
               <button
                 onClick={() => setIsSearchVisible(!isSearchVisible)}
@@ -304,85 +371,90 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Products Carousel */}
-          <div className="py-8">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-extrabold text-gray-900">
-                {searchTerm ? 'Search Results' : 'Featured Products'}
-              </h2>
-              {!searchTerm && (
-                <div className="flex items-center space-x-4">
-                  <button
-                    onClick={() => setIsAutoScrollPaused(!isAutoScrollPaused)}
-                    className="px-3 py-1 text-sm font-medium text-gray-600 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors duration-200 flex items-center space-x-2"
-                  >
-                    {isAutoScrollPaused ? (
-                      <>
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
-                        </svg>
-                        <span>Resume</span>
-                      </>
-                    ) : (
-                      <>
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
-                        </svg>
-                        <span>Pause</span>
-                      </>
-                    )}
-                  </button>
-                  <div className="flex space-x-2">
-                    <button
-                      onClick={() => scrollCarousel('left')}
-                      className="p-2 rounded-full bg-white shadow-md hover:bg-gray-50 transition-colors duration-200"
-                      aria-label="Scroll left"
-                    >
-                      <ChevronLeft className="h-6 w-6 text-gray-600" />
-                    </button>
-                    <button
-                      onClick={() => scrollCarousel('right')}
-                      className="p-2 rounded-full bg-white shadow-md hover:bg-gray-50 transition-colors duration-200"
-                      aria-label="Scroll right"
-                    >
-                      <ChevronRight className="h-6 w-6 text-gray-600" />
-                    </button>
-                  </div>
-                </div>
-              )}
+          {/* Products Section */}
+          <div className="relative">
+            {/* Carousel Controls */}
+            <div className="flex items-center justify-end mb-4">
+              <button
+                onClick={() => setIsAutoScrollPaused(!isAutoScrollPaused)}
+                className={`flex items-center space-x-2 px-4 py-2 rounded-md border ${
+                  isAutoScrollPaused 
+                    ? 'border-blue-600 text-blue-600 hover:bg-blue-50' 
+                    : 'border-gray-300 text-gray-600 hover:bg-gray-50'
+                }`}
+              >
+                {isAutoScrollPaused ? (
+                  <>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
+                    </svg>
+                    <span className="text-sm font-medium">Play</span>
+                  </>
+                ) : (
+                  <>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                    <span className="text-sm font-medium">Pause</span>
+                  </>
+                )}
+              </button>
             </div>
-            
-            <div 
+
+            {/* Carousel Navigation */}
+            <button
+              onClick={() => scrollCarousel('left')}
+              className="absolute left-0 top-1/2 transform -translate-y-1/2 z-10 bg-white/80 p-2 rounded-full shadow-lg hover:bg-white"
+            >
+              <ChevronLeft className="h-6 w-6" />
+            </button>
+            <button
+              onClick={() => scrollCarousel('right')}
+              className="absolute right-0 top-1/2 transform -translate-y-1/2 z-10 bg-white/80 p-2 rounded-full shadow-lg hover:bg-white"
+            >
+              <ChevronRight className="h-6 w-6" />
+            </button>
+
+            {/* Products Carousel */}
+            <div
               id="products-carousel"
-              className={`
-                ${searchTerm ? 'grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3' : 'flex overflow-x-auto hide-scrollbar'}
-                pb-4 -mx-4 px-4
-              `}
-              style={{
-                scrollbarWidth: 'none',
-                msOverflowStyle: 'none',
-                WebkitOverflowScrolling: 'touch',
-              }}
+              className="flex overflow-x-auto hide-scrollbar snap-x snap-mandatory py-4 px-6 space-x-6"
               onMouseEnter={() => setIsAutoScrollPaused(true)}
               onMouseLeave={() => setIsAutoScrollPaused(false)}
             >
+              {/* Original products */}
               {filteredProducts.map((product) => (
-                <div
-                  key={product.id}
-                  className={`
-                    ${searchTerm ? '' : 'flex-none w-80 mr-4'}
-                  `}
-                >
-                  <ProductCard product={product} />
+                <div key={product.id} className="flex-none w-80 snap-start">
+                  <ProductCard product={{
+                    id: product.id,
+                    name: product.name,
+                    description: product.description,
+                    price: product.price.toString(),
+                    image: product.image || `https://picsum.photos/400/${300 + parseInt(product.id)}`,
+                    sellerAddress: product.sellerAddress,
+                    region: product.region,
+                    verificationRequired: product.verificationRequired,
+                    type: product.type
+                  }} onAddToCart={addToCart} />
+                </div>
+              ))}
+              {/* Duplicated products for infinite scroll */}
+              {filteredProducts.map((product) => (
+                <div key={`${product.id}-duplicate`} className="flex-none w-80 snap-start">
+                  <ProductCard product={{
+                    id: product.id,
+                    name: product.name,
+                    description: product.description,
+                    price: product.price.toString(),
+                    image: product.image || `https://picsum.photos/400/${300 + parseInt(product.id)}`,
+                    sellerAddress: product.sellerAddress,
+                    region: product.region,
+                    verificationRequired: product.verificationRequired,
+                    type: product.type
+                  }} onAddToCart={addToCart} />
                 </div>
               ))}
             </div>
-
-            {filteredProducts.length === 0 && (
-              <div className="text-center py-12">
-                <p className="text-gray-500">No products found matching your criteria.</p>
-              </div>
-            )}
           </div>
 
           {/* Add this CSS to hide scrollbar but keep functionality */}
@@ -454,7 +526,7 @@ export default function Home() {
                                       <p className="ml-4">
                                         {item.type === 'nft'
                                           ? `${item.price} ETH`
-                                          : `$${item.price}`}
+                                          : `$${Number(item.price).toFixed(2)}`}
                                       </p>
                                     </div>
                                     <p className="mt-1 text-sm text-gray-500">
@@ -507,8 +579,10 @@ export default function Home() {
                       <div className="flex justify-between text-base font-medium text-gray-900">
                         <p>Subtotal</p>
                         <p>
-                          {cart.items.some((item) => item.type === 'nft')
+                          {cart.items.some((item) => item.type === 'nft') && cart.items.some((item) => item.type === 'physical')
                             ? 'Mixed currencies'
+                            : cart.items[0]?.type === 'nft'
+                            ? `${cart.total.toFixed(3)} ETH`
                             : `$${cart.total.toFixed(2)}`}
                         </p>
                       </div>
@@ -549,7 +623,7 @@ export default function Home() {
                             </>
                           ) : (
                             <>
-                              Checkout with Coinbase
+                              Proceed to Checkout
                               {testMode && ' (Test Mode)'}
                             </>
                           )}
@@ -563,6 +637,18 @@ export default function Home() {
           </div>
         </div>
       )}
+
+      {/* Checkout Modal */}
+      <CheckoutModal
+        isOpen={isCheckoutModalOpen}
+        onClose={() => setIsCheckoutModalOpen(false)}
+      />
+
+      {/* Product Listing Form Modal */}
+      <ProductListingForm
+        isOpen={showProductForm}
+        onClose={() => setShowProductForm(false)}
+      />
     </div>
   );
 }

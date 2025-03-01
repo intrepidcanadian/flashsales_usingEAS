@@ -11,9 +11,7 @@ export interface CartItem {
   price: number;
   quantity: number;
   image?: string;
-  type: 'physical' | 'nft';
-  contractAddress?: string;
-  tokenId?: string;
+  type: 'physical';
 }
 
 interface CartState {
@@ -106,12 +104,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const handleCheckout = async (testMode: boolean = false) => {
     if (state.items.length === 0) {
       toast.error('Your cart is empty');
-      return;
-    }
-
-    // Check if wallet is connected for NFT purchases
-    if (state.items.some(item => item.type === 'nft') && !address) {
-      toast.error('Please connect your wallet to purchase NFTs');
       return;
     }
 

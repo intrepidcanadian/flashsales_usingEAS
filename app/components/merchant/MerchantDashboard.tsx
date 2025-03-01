@@ -1,3 +1,5 @@
+'use client';
+
 import { useState, useEffect } from 'react';
 import { useAccount, usePublicClient } from 'wagmi';
 import { getMerchantAttestation, MerchantLevel, MerchantCategory } from '../../utils/attestation';
