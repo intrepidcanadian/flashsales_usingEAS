@@ -3,10 +3,6 @@
   "buildCommand": "next build",
   "devCommand": "next dev",
   "installCommand": "npm install",
-  "env": {
-    "NEXT_PUBLIC_COINBASE_COMMERCE_API_KEY": "@coinbase_commerce_api_key",
-    "NEXT_PUBLIC_BASE_RPC_URL": "https://mainnet.base.org"
-  },
   "headers": [
     {
       "source": "/(.*)",

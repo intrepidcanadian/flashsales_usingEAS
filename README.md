@@ -1,39 +1,51 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-onchain`]().
+# OnchainKit Store
 
+A Next.js e-commerce application built with OnchainKit, featuring Coinbase Commerce integration and Base attestation verification.
 
-## Getting Started
+## Features
 
-First, install dependencies:
+- NFT and physical product sales
+- Coinbase Commerce integration
+- Base attestation verification
+- Wallet connection
+- Test mode for development
+- Order tracking
+
+## Environment Variables
+
+Copy `.env.example` to `.env.local` and fill in your values:
 
 ```bash
+# Coinbase Commerce API
+NEXT_PUBLIC_COINBASE_COMMERCE_API_KEY=your_api_key_here
+
+# Base Network RPC URL (for attestations)
+NEXT_PUBLIC_BASE_RPC_URL=https://mainnet.base.org
+```
+
+## Development
+
+```bash
+# Install dependencies
 npm install
-# or
-yarn install
-# or
-pnpm install
-# or
-bun install
-```
 
-Next, run the development server:
-
-```bash
+# Run development server
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Deployment
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+1. Push code to GitHub
+2. Import project in Vercel
+3. Configure environment variables in Vercel dashboard
+4. Deploy!
 
+## Testing
 
-## Learn More
+Use test mode for development:
+- NFT items: $0.01 USD each
+- Physical items: $0.10 USD each
 
-To learn more about OnchainKit, see our [documentation](https://onchainkit.xyz/getting-started).
+## Production
 
-To learn more about Next.js, see the [Next.js documentation](https://nextjs.org/docs).
+Regular pricing applies in production mode.
