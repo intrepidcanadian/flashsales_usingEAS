@@ -23,7 +23,7 @@ In today's digital commerce landscape, merchants face several critical challenge
 
 ## 💡 Solution
 
-Our platform revolutionizes e-commerce by leveraging blockchain attestations to create a trustless, efficient marketplace:
+Blockchain attestations are much better than NFTs for creating tailored e-commerce experience for users allowing merchants to do more targetted marketing.
 
 ### For Merchants
 - **Targeted Marketing**: Leverage Base attestations to precisely target verified customer segments
@@ -48,7 +48,7 @@ The solution addresses a massive market opportunity in the e-commerce space:
 - Customer acquisition costs (CAC) have increased by 222% over the last eight years
 - 63% of marketers cite generating traffic and leads as their top challenge
 
-### Competitive Advantages
+### Advantages
 1. **Underserved Market for Attestation-Based E-commerce**
    - Leverage Base attestations for customer verification
    - Unique position in combining blockchain verification with e-commerce
