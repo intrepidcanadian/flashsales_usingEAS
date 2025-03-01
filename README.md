@@ -49,14 +49,14 @@ The solution addresses a massive market opportunity in the e-commerce space:
 - 63% of marketers cite generating traffic and leads as their top challenge
 
 ### Competitive Advantages
-1. **First-Mover in Attestation-Based E-commerce**
-   - Pioneer in leveraging Base attestations for customer verification
+1. **Underserved Market for Attestation-Based E-commerce**
+   - Leverage Base attestations for customer verification
    - Unique position in combining blockchain verification with e-commerce
-   - Early partnership opportunities with major platforms
+   - E-commerce market will grow rappidly with AI
 
 2. **Technical Innovation**
    - Built on Base, ensuring scalability and low costs
-   - Integration with Coinbase Commerce for seamless payments
+   - Integration with Coinbase Commerce for seamless payments (lower fees cross-border)
    - Extensible architecture for future features
 
 3. **Privacy-First Approach**
