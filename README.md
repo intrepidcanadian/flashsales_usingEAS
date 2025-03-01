@@ -105,20 +105,10 @@ graph TD
 ### 3. Purchase Flow
 1. **Cart Management**
    - Add verified products to cart
-   - Real-time price calculations
    - Quantity adjustments
    - Cart persistence across sessions
 
-2. **Checkout Process**
-   ```mermaid
-   graph LR
-       A[Products added to Cart based on verified attestation eligibility increasing conversion rate via flash sales and targeted product offering] --> B[Create Charge]
-       B --> C[Coinbase Commerce]
-       C --> D[Payment Processing]
-       D --> E[Payout]]
-   ```
-
-3. **Payment Processing**
+2. **Payment Processing**
    - Seamless integration with Coinbase Commerce
    - Support for multiple payment methods
    - Real-time transaction status updates
