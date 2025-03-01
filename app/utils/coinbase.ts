@@ -98,116 +98,91 @@ export async function getCoinbaseProduct(productId: string) {
   }
 }
 
-export async function createCoinbaseCheckout(items: CartItem[], buyerAddress?: string, testMode: boolean = false) {
+export async function createCoinbaseCheckout(
+  items: CartItem[], 
+  buyerAddress?: string, 
+  testMode: boolean = false,
+  orderId?: string
+) {
   if (!process.env.NEXT_PUBLIC_COINBASE_COMMERCE_API_KEY) {
-    console.error('Coinbase Commerce API key is missing');
     throw new Error('Coinbase Commerce API key is not configured');
   }
 
   try {
-    // Calculate total for physical items in USD
-    const physicalTotal = items
-      .filter(item => item.type === 'physical')
-      .reduce((sum, item) => sum + (testMode ? 0.01 : item.price) * item.quantity, 0);
-    console.log('Physical items total:', physicalTotal);
+    // Calculate total amount with clear test mode pricing
+    const totalAmount = items.reduce((sum, item) => {
+      const itemPrice = testMode
+        ? item.type === 'nft' 
+          ? 0.01 // Test mode NFT price: $0.01
+          : 0.10 // Test mode physical item price: $0.10
+        : item.price; // Regular price for non-test mode
+      
+      return sum + (itemPrice * item.quantity);
+    }, 0).toFixed(2);
 
-    // Get NFT items
-    const nftItems = items.filter(item => item.type === 'nft');
-    console.log('NFT items:', nftItems);
-    
-    // Use minimal ETH amount for testing
-    const nftTotal = nftItems
-      .reduce((sum, item) => sum + (testMode ? 0.0000001 : item.price) * item.quantity, 0);
-    console.log('NFT total:', nftTotal);
-    
-    // For testing, use a very low ETH to USD rate
-    const ETH_TO_USD = testMode ? 1 : 3000; // In test mode, 1 ETH = 1 USD for simplicity
-    const totalInUSD = physicalTotal + (nftTotal * ETH_TO_USD);
-    console.log('Total in USD:', totalInUSD);
-
-    // Ensure minimum charge amount (Coinbase minimum is typically 0.01 USD)
-    const finalAmount = Math.max(totalInUSD, 0.01).toFixed(2);
-    console.log('Final amount:', finalAmount);
-
-    // Generate unique order ID
-    const orderId = `order_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
-    console.log('Generated order ID:', orderId);
-
-    // Create a descriptive name and description based on items
-    const itemNames = items.map(item => `${item.quantity}x ${item.name}`);
-    const chargeName = itemNames.length === 1 
-      ? itemNames[0] 
-      : `${itemNames[0]} and ${itemNames.length - 1} more item${itemNames.length > 2 ? 's' : ''}`;
-    console.log('Charge name:', chargeName);
-
-    const description = items.map(item => 
-      `${item.quantity}x ${item.name} (${item.type === 'nft' ? 'NFT' : 'Physical'})${
-        item.type === 'nft' ? ' - Includes automatic transfer on purchase' : ''
-      }`
-    ).join('\n');
-    console.log('Charge description:', description);
+    console.log('Checkout details:', {
+      items: items.map(item => ({
+        name: item.name,
+        type: item.type,
+        quantity: item.quantity,
+        unitPrice: testMode
+          ? item.type === 'nft' ? 0.01 : 0.10
+          : item.price,
+      })),
+      totalAmount,
+      testMode
+    });
 
     // Create charge request
-    const chargeRequest: CoinbaseChargeRequest = {
-      name: testMode ? `[TEST] ${chargeName}` : chargeName,
-      description: testMode ? `[TEST MODE] ${description}` : description,
-      local_price: {
-        amount: finalAmount,
-        currency: 'USD'
-      },
-      pricing_type: 'fixed_price',
-      metadata: {
-        order_id: orderId,
-        items: items,
-        buyer_address: buyerAddress,
-        testMode
-      },
-      redirect_url: `${window.location.origin}/orders?order_id=${orderId}`,
-      cancel_url: `${window.location.origin}/cart`
-    };
-    console.log('Charge request:', chargeRequest);
-
-    console.log('Making request to Coinbase Commerce API...');
     const response = await fetch('https://api.commerce.coinbase.com/charges', {
       method: 'POST',
       headers: {
-        'X-CC-Api-Key': process.env.NEXT_PUBLIC_COINBASE_COMMERCE_API_KEY,
         'Content-Type': 'application/json',
-        'Accept': 'application/json'
+        'X-CC-Api-Key': process.env.NEXT_PUBLIC_COINBASE_COMMERCE_API_KEY,
+        'X-CC-Version': '2018-03-22'
       },
-      body: JSON.stringify(chargeRequest)
+      body: JSON.stringify({
+        name: testMode ? '[TEST] OnchainKit Purchase' : 'OnchainKit Purchase',
+        description: items.map(item => 
+          `${item.quantity}x ${item.name} (${item.type}) @ $${testMode 
+            ? (item.type === 'nft' ? '0.01' : '0.10') 
+            : item.price} each`
+        ).join(', '),
+        pricing_type: 'fixed_price',
+        local_price: {
+          amount: totalAmount,
+          currency: 'USD'
+        },
+        metadata: {
+          order_id: orderId,
+          buyer_address: buyerAddress,
+          test_mode: testMode,
+          items: items.map(item => ({
+            id: item.id,
+            name: item.name,
+            quantity: item.quantity,
+            type: item.type,
+            unit_price: testMode
+              ? item.type === 'nft' ? 0.01 : 0.10
+              : item.price
+          }))
+        },
+        redirect_url: `${typeof window !== 'undefined' ? window.location.origin : ''}/orders/${orderId}`,
+        cancel_url: `${typeof window !== 'undefined' ? window.location.origin : ''}/cart`
+      })
     });
 
-    console.log('Response status:', response.status);
     if (!response.ok) {
-      const errorData = await response.json();
-      console.error('Coinbase Commerce API error:', errorData);
-      throw new Error(errorData.error?.message || 'Failed to create Coinbase Commerce charge');
+      const error = await response.json();
+      console.error('Coinbase API error:', error);
+      throw new Error(`Error creating Coinbase charge: ${error.error?.message || response.statusText}`);
     }
 
-    const charge = await response.json();
-    console.log('Charge created successfully:', charge);
-    
-    // Store charge details in localStorage for webhook verification
-    const pendingCharge = {
-      chargeId: charge.data.id,
-      orderId: orderId,
-      items: items,
-      timestamp: Date.now(),
-      testMode
-    };
-    console.log('Storing pending charge:', pendingCharge);
-    localStorage.setItem('pendingCharge', JSON.stringify(pendingCharge));
-
-    return {
-      data: {
-        ...charge.data,
-        metadata: chargeRequest.metadata,
-        hosted_url: charge.data.hosted_url
-      }
-    };
+    const data = await response.json();
+    console.log('Coinbase checkout created:', data);
+    return data;
   } catch (error) {
-    console.error('Error creating Coinbase charge:', error);
+    console.error('Error creating Coinbase checkout:', error);
     throw error;
   }
 } 

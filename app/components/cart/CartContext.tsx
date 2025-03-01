@@ -1,11 +1,17 @@
 'use client';
 
 import { createContext, useContext, useReducer, ReactNode, useEffect, useState, useCallback } from 'react';
-import { createCoinbaseCheckout, createCoinbaseProduct } from '../../utils/coinbase';
+import { createCoinbaseCheckout } from '../../utils/coinbase';
 import { useAccount } from 'wagmi';
 import toast from 'react-hot-toast';
-import { supabase } from '../../../lib/supabase';
-import type { Database, Json } from '../../../types/database';
+
+// Function to generate a UUID using the crypto API
+function generateUUID() {
+  const template = '10000000-1000-4000-8000-100000000000';
+  return template.replace(/[018]/g, c => 
+    (parseInt(c) ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> parseInt(c) / 4).toString(16)
+  );
+}
 
 export interface CartItem {
   id: string;
@@ -17,7 +23,6 @@ export interface CartItem {
   type: 'physical' | 'nft';
   contractAddress?: string;
   tokenId?: string;
-  coinbaseProductId?: string;
 }
 
 interface CartState {
@@ -182,50 +187,52 @@ export function CartProvider({ children }: { children: ReactNode }) {
     try {
       dispatch({ type: 'SET_PROCESSING', payload: true });
 
-      // Create products in Coinbase Commerce if they don't exist
-      for (const item of state.items) {
-        if (!item.coinbaseProductId) {
-          const product = await createCoinbaseProduct({
-            name: item.name,
-            description: `${item.name} (${item.type === 'nft' ? 'NFT' : 'Physical'})`,
-            price: item.price,
-            type: item.type,
-            image_url: item.image
-          });
-          item.coinbaseProductId = product.data.id;
-        }
-      }
-
-      const checkout = await createCoinbaseCheckout(state.items, address, testMode);
+      // Generate a UUID for the order
+      const orderId = generateUUID();
       
-      // Create order in Supabase
-      const { error: orderError } = await supabase
-        .from('orders')
-        .insert({
-          id: checkout.data.metadata.order_id,
-          user_address: address,
-          items: state.items as unknown as Json,
-          total: state.items.reduce((sum, item) => 
-            sum + (testMode ? 
-              (item.type === 'nft' ? 0.0000001 : 0.01) : 
-              item.price) * item.quantity, 
-            0
-          ),
-          status: 'pending',
-          charge_id: checkout.data.id,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        } as Database['public']['Tables']['orders']['Insert']);
-
-      if (orderError) {
-        throw orderError;
+      const checkoutResponse = await createCoinbaseCheckout(state.items, address, testMode, orderId);
+      console.log('Checkout response:', checkoutResponse);
+      
+      if (!checkoutResponse?.data?.hosted_url) {
+        throw new Error('Invalid checkout response from Coinbase');
       }
+
+      // Store order details in localStorage
+      const order = {
+        id: orderId,
+        userAddress: address.toLowerCase(),
+        items: state.items,
+        total: state.items.reduce((sum, item) => 
+          sum + (testMode ? 
+            (item.type === 'nft' ? 0.0000001 : 0.01) : 
+            item.price) * item.quantity, 
+          0
+        ),
+        status: 'pending',
+        chargeId: checkoutResponse.data.id,
+        createdAt: new Date().toISOString(),
+        testMode,
+        metadata: checkoutResponse.data.metadata
+      };
+
+      // Store in localStorage
+      localStorage.setItem(`order_${orderId}`, JSON.stringify(order));
+      
+      // Store pending charge info
+      const pendingCharge = {
+        chargeId: checkoutResponse.data.id,
+        orderId,
+        items: state.items,
+        timestamp: Date.now(),
+        testMode
+      };
+      localStorage.setItem('pendingCharge', JSON.stringify(pendingCharge));
       
       // Clear the cart before redirecting
       dispatch({ type: 'CLEAR_CART' });
       
       // Redirect to Coinbase Commerce checkout
-      window.location.href = checkout.data.hosted_url;
+      window.location.href = checkoutResponse.data.hosted_url;
     } catch (error) {
       console.error('Checkout error:', error);
       toast.error('Failed to process checkout. Please try again.');

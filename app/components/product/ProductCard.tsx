@@ -78,7 +78,6 @@ export function ProductCard({ product, onAddToCart }: ProductCardProps) {
 
     if (onAddToCart) {
       onAddToCart(product);
-      toast.success('Added to cart');
     }
   };
 
